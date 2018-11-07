@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio>
+#include <ostream>
 #include <vector>
 #include <memory>
 #include "types.h"
@@ -10,18 +10,19 @@
 #include <string_view>
 #include <queue>
 #include <type_traits>
-
-
+#include <typeinfo>
+#include <unordered_set>
+#include <typeindex>
 
 class OutputDataStream {
 public:
-    explicit OutputDataStream(std::FILE* file, int string_cache_size = 0)
-        : file_(file), string_counter_(0), string_cache_size_(string_cache_size) {
+    explicit OutputDataStream(std::ostream* out, int string_cache_size = 0)
+        : out_(out), string_counter_(0), string_cache_size_(string_cache_size) {
         last_occurence_.reserve(string_cache_size + 2);
 
         /* Signature */
         Write("OOSFv1");
-        Write(string_cache_size_);
+        WriteMinimal(string_cache_size_);
     }
 
     ~OutputDataStream() {
@@ -29,6 +30,21 @@ public:
 
     OutputDataStream(const OutputDataStream&) = delete;
     void operator=(const OutputDataStream&) = delete;
+
+    std::ostream* GetStream() {
+        return out_;
+    }
+
+    template <class T>
+    bool RegisterClass(const std::string& str) {
+        auto type_index = std::type_index(typeid(std::decay_t<T>));
+        auto iter = registered_classes_.find(type_index);
+        if (iter != registered_classes_.end()) {
+            return false;
+        }
+        registered_classes_[type_index] = str;
+        return true;
+    }
 
     template <class T>
     void Write(const T& value) {
@@ -63,13 +79,13 @@ public:
         WriteType<std::map<KeyType, ValueType>>();
         WriteAsMapInternal(begin, size);
     }
-
+/*
     template <class... Args>
     void WriteAsTuple(const Args&... args) {
         WriteType<std::tuple<Args...>>();
         (WriteValue(args), ...);
     }
-
+*/
     void WriteMinimal(int64_t value) {
 #define TRY(size) if (value < (1LL << size) && -(1LL << size) <= value) {   \
     Write(static_cast<int##size##_t>(value));                               \
@@ -98,10 +114,19 @@ if constexpr (std::is_same_v<type, T> ||                        \
         WRITE_TYPE(bool         , TYPE_BOOL     )
         WRITE_TYPE(std::string  , TYPE_STRING   )
 
-        if constexpr (std::is_same_v<std::decay_t<T>, char*>) {
+        if constexpr (std::is_base_of_v<Serializable, std::decay_t<T>>) {
+            auto type_index = std::type_index(typeid(std::decay_t<T>));
+            auto iter = registered_classes_.find(type_index);
+            if (iter == registered_classes_.end()) {
+                throw std::runtime_error("Unsupported class");
+            }
+
+            WriteByte(TYPE_STRUCT);
+            WriteValue(iter->second);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, char*>) {
             WriteByte(TYPE_STRING);
-        } else if constexpr (IsTuple<T>::value) {
-            WriteTupleType(static_cast<T*>(nullptr));
+ /*       } else if constexpr (IsTuple<T>::value) {
+            WriteTupleType(static_cast<T*>(nullptr));*/
         } else if constexpr (IsVector<T>::value) {
             WriteByte(TYPE_VECTOR);
             WriteType<typename T::value_type>();
@@ -110,44 +135,40 @@ if constexpr (std::is_same_v<type, T> ||                        \
             WriteType<typename T::key_type>();
             WriteType<typename T::mapped_type>();
         } else {
-
         }
 #undef WRITE_TYPE
     }
 
-    template <class T>
-    class IsTuple : public std::false_type {};
+#define TYPE_CHECKER(name, type) \
+    template <class T> \
+    class name : public std::false_type {}; \
+    \
+    template <class... Args> \
+    class name<type<Args...>> : public std::true_type {};
 
-    template <class... Args>
-    class IsTuple<std::tuple<Args...>> : public std::true_type {};
+//    TYPE_CHECKER(IsTuple,   std::tuple  )
+    TYPE_CHECKER(IsVector,  std::vector )
+    TYPE_CHECKER(IsMap,     std::map    )
 
-    template <class T>
-    class IsVector : public std::false_type {};
-
-    template <class... Args>
-    class IsVector<std::vector<Args...>> : public std::true_type {};
-
-    template <class T>
-    class IsMap : public std::false_type {};
-
-    template <class... Args>
-    class IsMap<std::map<Args...>> : public std::true_type {};
-
+#undef TYPE_CHECKER
+/*
     template <class... Args>
     inline void WriteTupleType(std::tuple<Args...>*) {
         WriteByte(TYPE_TUPLE);
         WriteMinimal(sizeof...(Args));
         (WriteType<Args>(), ...);
     }
-
+*/
     template <class T>
-    inline void WriteValue(T value) {
+    inline void WriteValue(const T& value) {
         if constexpr (std::is_integral_v<T>) {
             WriteBytes(&value);
         } else if constexpr (std::is_floating_point_v<T>) {
             WriteBytes(&value);
+        } else if constexpr (std::is_base_of_v<Serializable, std::decay_t<T>>) {
+            value.WriteValue(this);
         } else {
-            static_assert(std::disjunction_v<std::is_integral<T>, std::is_floating_point<T>>);
+            static_assert(std::disjunction_v<std::is_integral<T>, std::is_floating_point<T>, std::is_base_of<Serializable, std::decay_t<T>>>);
         }
     }
 
@@ -221,17 +242,19 @@ if constexpr (std::is_same_v<type, T> ||                        \
     }
 
     inline void WriteByte(char byte) {
-        std::fputc(byte, file_);
+        out_->put(byte);
     }
 
     template <class T>
     inline void WriteBytes(const T* value, int count = 1) {
-        std::fwrite(value, sizeof(T), count, file_);
+        out_->write(reinterpret_cast<const char*>(value), sizeof(T) * count);
     }
 
-    std::FILE* file_;
+    std::ostream* out_;
     int string_counter_;
     int string_cache_size_;
     std::unordered_map<std::string, int> last_occurence_;
     std::queue<typename std::unordered_map<std::string, int>::iterator> string_frame_;
+
+    std::unordered_map<std::type_index, std::string> registered_classes_;
 };
