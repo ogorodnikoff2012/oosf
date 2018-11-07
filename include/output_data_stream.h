@@ -13,6 +13,8 @@
 #include <typeinfo>
 #include <unordered_set>
 #include <typeindex>
+#include <sstream>
+#include <exception>
 
 class OutputDataStream {
 public:
@@ -123,7 +125,7 @@ if constexpr (std::is_same_v<type, T> ||                        \
 
             WriteByte(TYPE_STRUCT);
             WriteValue(iter->second);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, char*>) {
+        } else if constexpr (std::is_same_v<std::decay_t<T>, char*> || std::is_same_v<std::decay_t<T>, std::string>) {
             WriteByte(TYPE_STRING);
  /*       } else if constexpr (IsTuple<T>::value) {
             WriteTupleType(static_cast<T*>(nullptr));*/
@@ -135,6 +137,9 @@ if constexpr (std::is_same_v<type, T> ||                        \
             WriteType<typename T::key_type>();
             WriteType<typename T::mapped_type>();
         } else {
+            std::stringstream ss;
+            ss << "Type " << std::type_info(typeid(std::decay_t<T>)).name() << " is not serializable";
+            throw std::runtime_error(ss.str());
         }
 #undef WRITE_TYPE
     }
