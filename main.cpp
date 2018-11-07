@@ -35,13 +35,21 @@ std::ostream& operator<<(std::ostream& out, const std::map<K, V>& m) {
 
 struct Foo : public Serializable {
     int x;
-    Foo(int value) : x(value) {
+    explicit Foo(int value = 0) : x(value) {
+    }
+
+    ReadStatus TryRead(InputDataStream* in) {
+        return in->TryRead(&x);
     }
 
     void WriteValue(OutputDataStream* out) const {
         out->Write(x);
     }
 };
+
+std::ostream& operator<<(std::ostream& out, const Foo& foo) {
+    return out << "Foo(" << foo.x << ")";
+}
 
 void WriteTest() {
     std::ofstream file("file.bin", std::ios_base::binary);
@@ -114,6 +122,9 @@ void ReadTest() {
     CHECK_TYPE(std::vector<int> )
     using Map = std::map<InputDataStream::String, int>;
     CHECK_TYPE(Map              )
+
+    stream.RegisterClass<Foo>("Foo");
+    CHECK_TYPE(Foo              )
 
     std::fclose(file);
 }

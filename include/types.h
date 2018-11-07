@@ -18,9 +18,19 @@
 #include <cstdio>
 
 class OutputDataStream;
+class InputDataStream;
+
+enum ReadStatus {
+    kStatusOk,
+    kStatusBadType,
+    kStatusMalformedData,
+    kStatusReadError,
+    kStatusStringOutOfCache
+};
 
 class Serializable {
 public:
+    virtual ReadStatus TryRead(InputDataStream*) = 0;
     virtual void WriteValue(OutputDataStream*) const = 0;
     virtual ~Serializable() = default;
 };
