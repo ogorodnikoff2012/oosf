@@ -206,6 +206,11 @@ private:
         return kStatusOk;
     }
 
+    template <class K, class V, class... Args>
+    ReadStatus CheckType(std::unordered_map<K, V, Args...>*) {
+        return CheckType(static_cast<std::map<K, V, Args...>*>(nullptr));
+    }
+
 #define READ_LENGTH                                                                 \
 int64_t length = 0;                                                                 \
 ReadStatus status = kStatusOk;                                                      \
@@ -257,6 +262,16 @@ if ((status = TryReadMinimal(&length)) != kStatusOk) {                          
 
     template <class K, class V, class... Args>
     ReadStatus ReadObject(std::map<K, V, Args...>* map) {
+        return ReadAsMap<K, V>(map);
+    }
+
+    template <class K, class V, class... Args>
+    ReadStatus ReadObject(std::unordered_map<K, V, Args...>* map) {
+        return ReadAsMap<K, V>(map);
+    }
+
+    template <class Map, class K, class V>
+    ReadStatus ReadAsMap(Map* map) {
         READ_LENGTH
         if (length < 0) {
             corrupted_ = true;
