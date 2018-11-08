@@ -270,7 +270,7 @@ if ((status = TryReadMinimal(&length)) != kStatusOk) {                          
         return ReadAsMap<K, V>(map);
     }
 
-    template <class Map, class K, class V>
+    template <class K, class V, class Map>
     ReadStatus ReadAsMap(Map* map) {
         READ_LENGTH
         if (length < 0) {
