@@ -177,6 +177,7 @@ private:
     READ_CHECK(bool     , TYPE_BOOL     )
 
     CHECK_SIMPLE_TYPE(String, TYPE_STRING)
+    CHECK_SIMPLE_TYPE(std::string, TYPE_STRING)
 
 #undef READ_CHECK
 #undef CHECK_SIMPLE_TYPE
@@ -240,6 +241,15 @@ if ((status = TryReadMinimal(&length)) != kStatusOk) {                          
     template <class T, class=std::enable_if_t<std::is_base_of_v<Serializable, std::decay_t<T>>>>
     ReadStatus ReadObject(T* obj) {
         return obj->TryRead(this);
+    }
+
+    ReadStatus ReadObject(std::string* str) {
+        String buf;
+        ReadStatus status = ReadObject(&buf);
+        if (status == kStatusOk) {
+            *str = buf.get();
+        }
+        return status;
     }
 
     template <class T, class... Args>
