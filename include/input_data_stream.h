@@ -208,7 +208,7 @@ private:
 
     template <class K, class V, class... Args>
     ReadStatus CheckType(std::unordered_map<K, V, Args...>*) {
-        return CheckType(static_cast<std::map<K, V, Args...>*>(nullptr));
+        return CheckType(static_cast<std::map<K, V>*>(nullptr));
     }
 
 #define READ_LENGTH                                                                 \
