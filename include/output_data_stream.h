@@ -16,8 +16,7 @@
 #include <sstream>
 #include <exception>
 #include <iostream>
-
-#define LOG(x) std::cerr << __PRETTY_FUNCTION__ << ':' << __LINE__ << ": " << #x << " = " << ( x ) << std::endl
+#include "log.h"
 
 class OutputDataStream {
 public:
@@ -268,5 +267,3 @@ if constexpr (std::is_same_v<type, T> ||                        \
 
     std::unordered_map<std::type_index, std::string> registered_classes_;
 };
-
-#undef LOG

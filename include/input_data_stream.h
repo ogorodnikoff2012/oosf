@@ -12,8 +12,7 @@
 #include <unordered_map>
 #include <typeinfo>
 #include <typeindex>
-
-#define LOG(x) std::cerr << __PRETTY_FUNCTION__ << ':' << __LINE__ << ": " << #x << " = " << ( x ) << std::endl
+#include "log.h"
 
 class InputDataStream {
 public:
@@ -344,5 +343,3 @@ if ((status = TryReadMinimal(&length)) != kStatusOk) {                          
 
     std::unordered_map<std::type_index, std::string> registered_classes_;
 };
-
-#undef LOG
