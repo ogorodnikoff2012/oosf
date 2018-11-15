@@ -15,6 +15,9 @@
 #include <typeindex>
 #include <sstream>
 #include <exception>
+#include <iostream>
+
+#define LOG(x) std::cerr << __PRETTY_FUNCTION__ << ':' << __LINE__ << ": " << #x << " = " << ( x ) << std::endl
 
 class OutputDataStream {
 public:
@@ -89,7 +92,7 @@ public:
     }
 */
     void WriteMinimal(int64_t value) {
-#define TRY(size) if (value < (1LL << size) && -(1LL << size) <= value) {   \
+#define TRY(size) if (value < (1LL << ( size - 1)) && -(1LL << (size - 1)) <= value) {   \
     Write(static_cast<int##size##_t>(value));                               \
 } else
         TRY(8)
@@ -193,6 +196,7 @@ if constexpr (std::is_same_v<type, T> ||                        \
             return;
         }
 
+        LOG(str);
         auto iter = last_occurence_.find(str);
         if (iter != last_occurence_.end()) {
             WriteMinimal(-iter->second - 1);
@@ -202,6 +206,7 @@ if constexpr (std::is_same_v<type, T> ||                        \
             iter = last_occurence_.emplace(std::move(str), string_counter_).first;
         }
         ++string_counter_;
+        LOG(string_counter_);
 
         string_frame_.push(iter);
         if (static_cast<int>(string_frame_.size()) > string_cache_size_) {
@@ -263,3 +268,5 @@ if constexpr (std::is_same_v<type, T> ||                        \
 
     std::unordered_map<std::type_index, std::string> registered_classes_;
 };
+
+#undef LOG

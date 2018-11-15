@@ -13,7 +13,7 @@
 #include <typeinfo>
 #include <typeindex>
 
-#define LOG(x) std::cerr << __FILE__ << ':' << __LINE__ << ':' << #x << ": " << x << std::endl;
+#define LOG(x) std::cerr << __PRETTY_FUNCTION__ << ':' << __LINE__ << ": " << #x << " = " << ( x ) << std::endl
 
 class InputDataStream {
 public:
@@ -305,7 +305,7 @@ if ((status = TryReadMinimal(&length)) != kStatusOk) {                          
         READ_LENGTH
         if (length < 0) {
             int64_t index = -length - 1;
-            index -= (string_counter_ - string_cache_size_);
+            index -= std::max(string_counter_ - string_cache_size_, 0);
             if (index < 0 || index >= string_cache_size_) {
                 corrupted_ = true;
                 return kStatusStringOutOfCache;
