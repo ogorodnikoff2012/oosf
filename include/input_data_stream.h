@@ -130,7 +130,7 @@ private:
             CHECK_FIRST_LETTER(TYPE_STRUCT);
 
             String str;
-            ReadStatus string_check = ReadObject(&str);
+            ReadStatus string_check = ReadString(&str);
             if (string_check != kStatusOk) {
                 std::fseek(file_, pos, SEEK_SET);
                 return string_check;
@@ -143,6 +143,7 @@ private:
                 return kStatusBadType;
             }
 
+            UpdateStringCache(&str);
             return kStatusOk;
 
         } else {
@@ -300,7 +301,7 @@ if ((status = TryReadMinimal(&length)) != kStatusOk) {                          
         return kStatusOk;
     }
 
-    ReadStatus ReadObject(String* str) {
+    ReadStatus ReadString(String* str) {
         READ_LENGTH
         if (length < 0) {
             int64_t index = -length - 1;
@@ -322,13 +323,23 @@ if ((status = TryReadMinimal(&length)) != kStatusOk) {                          
             }
             *str = String(data);
         }
+        return kStatusOk;
+    }
 
+    void UpdateStringCache(String* str) {
         string_cache_.push_back(*str);
         while (static_cast<int>(string_cache_.size()) > string_cache_size_) {
             string_cache_.pop_front();
         }
         ++string_counter_;
-        return kStatusOk;
+    }
+
+    ReadStatus ReadObject(String* str) {
+        ReadStatus status = ReadString(str);
+        if (status == kStatusOk) {
+            UpdateStringCache(str);
+        }
+        return status;
     }
 
     inline int GetByte() {
@@ -340,6 +351,7 @@ if ((status = TryReadMinimal(&length)) != kStatusOk) {                          
     int string_cache_size_ = 1;
     int string_counter_ = 0;
     bool corrupted_ = false;
+
 
     std::unordered_map<std::type_index, std::string> registered_classes_;
 };
